@@ -1,1 +1,0 @@
-# Protein-Folding-JDE

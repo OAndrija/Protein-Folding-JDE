@@ -94,10 +94,10 @@ double calculateEnergy(const Solution& solution, const std::string& S) {
 Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator,
                       std::uniform_real_distribution<>& distribution, const std::string& S,
                       const unsigned int &Np, const unsigned int &D,
-                      double target, double epsilon, unsigned int nfesLmt, double runtimeLmt)
+                      double target, double epsilon, unsigned int nfesLmt, double runtimeLmt,
+                      unsigned int &nfes)
 {
     auto startTime = std::chrono::high_resolution_clock::now();
-    unsigned int nfes = 0;
     Solution bestSolution = population[0];
     double bestEnergy = calculateEnergy(bestSolution, S);
 
@@ -157,15 +157,15 @@ Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator
     }
 }
 
-void parseArguments(int argc, char* argv[], std::string &S, unsigned int &seed, double &target, unsigned int &nfesLmt, unsigned int &Np, unsigned int &D) {
-    if (argc != 11) {
-        throw std::invalid_argument("Invalid number of arguments. Expected number: 10.");
+void parseArguments(int argc, char* argv[], std::string &S, unsigned int &seed, double &target, unsigned int &nfesLmt, double &runtimeLmt, unsigned int &Np, unsigned int &D) {
+    if (argc != 12) {
+        throw std::invalid_argument("Invalid number of arguments. Expected number: 11.");
     }
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "S" && i + 1 < argc) {
-            S = argv[++i];
+        if (i == 1) {
+            S = argv[i];
             D = 2 * S.length() - 5;
         } else if (arg == "-seed" && i + 1 < argc) {
             seed = std::strtoul(argv[++i], nullptr, 10);
@@ -173,6 +173,8 @@ void parseArguments(int argc, char* argv[], std::string &S, unsigned int &seed, 
             target = std::strtod(argv[++i], nullptr);
         } else if (arg == "-nfesLmt" && i + 1 < argc) {
             nfesLmt = std::strtoul(argv[++i], nullptr, 10);
+        } else if (arg == "-runtimeLmt" && i + 1 < argc) {
+            runtimeLmt = std::strtod(argv[++i], nullptr);
         } else if (arg == "-Np" && i + 1 < argc) {
             Np = std::strtoul(argv[++i], nullptr, 10);
         } else {
@@ -197,24 +199,22 @@ void printPopulation(const std::vector<Solution>& population) {
 int main(int argc, char* argv[]) {
     try {
         std::string S;
-        unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0;
-        double target = 0.0;
+        unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0, nfes = 0;
+        double target = 0.0, runtimeLmt = 0.0;
 
-        parseArguments(argc, argv, S, seed, target, nfesLmt, Np, D);
+        parseArguments(argc, argv, S, seed, target, nfesLmt, runtimeLmt, Np, D);
 
         std::mt19937 generator(seed);
         std::uniform_real_distribution<> distribution(0.0, 1.0);
         std::vector<Solution> population = initializePopulation(Np, D, generator, distribution);
 
         double epsilon = 1e-6;
-        double runtimeLmt = 60.0;
 
         auto startTime = std::chrono::high_resolution_clock::now();
-        Solution bestSolution = jdeAlgorithm(population, generator, distribution, S, Np, D, target, epsilon, nfesLmt, runtimeLmt);
+        Solution bestSolution = jdeAlgorithm(population, generator, distribution, S, Np, D, target, epsilon, nfesLmt, runtimeLmt, nfes);
         auto endTime = std::chrono::high_resolution_clock::now();
 
         double bestEnergy = calculateEnergy(bestSolution, S);
-        unsigned int nfes = nfesLmt;
         double runtime = std::chrono::duration<double>(endTime - startTime).count();
         double speed = nfes / runtime;
 
@@ -224,7 +224,7 @@ int main(int argc, char* argv[]) {
         std::cout << "runtime: " << runtime << "\n";
         std::cout << "speed: " << speed << "\n";
         std::cout << "E: " << bestEnergy << "\n";
-        std::cout << "solution angles: ";
+        std::cout << "solution: ";
         for (double angle : bestSolution.angles) {
             std::cout << angle << " ";
         }

@@ -3,6 +3,7 @@
 #include <vector>
 #include <cmath>
 #include<chrono>
+#include <algorithm>
 
 struct Solution {
     std::vector<double> angles;
@@ -58,9 +59,14 @@ std::vector<Point> calculatePositions(const std::vector<double>& angles, unsigne
         double theta = angles[i - 2];
         double beta = angles[L - 2 + i - 3];
 
-        positions[i].x = positions[i - 1].x + cos(theta) * cos(beta);
-        positions[i].y = positions[i - 1].y + sin(theta) * cos(beta);
-        positions[i].z = positions[i - 1].z + sin(beta);
+        double cos_theta = cos(theta);
+        double sin_theta = sin(theta);
+        double cos_beta = cos(beta);
+        double sin_beta = sin(beta);
+
+        positions[i].x = positions[i - 1].x + cos_theta * cos_beta;
+        positions[i].y = positions[i - 1].y + sin_theta * cos_beta;
+        positions[i].z = positions[i - 1].z + sin_beta;
     }
 
     return positions;
@@ -80,8 +86,8 @@ double calculateEnergy(const Solution& solution, const std::string& S) {
     for (unsigned int i = 0; i < L - 2; ++i) {
         for (unsigned int j = i + 2; j < L; ++j) {
             double d_ij = calculateDistance(positions[i], positions[j]);
-            double d_ij_6 = pow(d_ij, -6);
-            double d_ij_12 = pow(d_ij, -12);
+            double d_ij_6 = 1.0 / (d_ij * d_ij * d_ij * d_ij * d_ij * d_ij);
+            double d_ij_12 = d_ij_6 * d_ij_6;
             double c_ij = cCoefficient(S[i], S[j]);
 
             E2 += 4 * (d_ij_12 - c_ij * d_ij_6);
@@ -138,7 +144,7 @@ Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator
 
             double energy_U = calculateEnergy(U, S);
             double energy_Xi = calculateEnergy(population[i], S);
-            nfes += 2;
+            nfes++;
 
             if (energy_U < energy_Xi) {
                 population[i] = U;

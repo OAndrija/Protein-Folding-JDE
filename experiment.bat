@@ -1,7 +1,7 @@
 @echo off
 
 :: Compile the C++ program with g++
-g++ -o experiment.exe main.cpp
+g++ -O3 -ffast-math -o experiment.exe main.cpp
 
 :: Check if the compilation was successful
 if %errorlevel% neq 0 (

@@ -3,7 +3,7 @@
 #include <vector>
 #include <cmath>
 #include<chrono>
-#include <algorithm>
+#include <fstream>
 
 struct Solution {
     std::vector<double> angles;
@@ -239,18 +239,13 @@ int main(int argc, char* argv[]) {
         double runtime = std::chrono::duration<double>(endTime - startTime).count();
         double speed = nfes / runtime;
 
-        std::cout << "S: " << S << "\n";
-        std::cout << "seed: " << seed << "\n";
-        std::cout << "nfes: " << nfes << "\n";
-        std::cout << "runtime: " << runtime << "\n";
-        std::cout << "speed: " << speed << "\n";
-        std::cout << "E: " << bestEnergy << "\n";
-        std::cout << "solution: ";
-        for (double angle : bestSolution.angles) {
-            std::cout << angle << " ";
+        std::ofstream file("results.csv", std::ios::app);
+        if (file.is_open()) {
+            file << seed << "," << bestEnergy << "," << runtime << "," << nfes << "," << speed << "\n";
+            file.close();
+        } else {
+            std::cerr << "Error: Unable to open results file." << std::endl;
         }
-        std::cout << "\n";
-
     } catch (const std::invalid_argument& e) {
         std::cerr << "Error: " << e.what() << "\n";
         return 1;
@@ -259,43 +254,14 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-/*
-int main(int argc, char* argv[]) {
-try {
-std::string S;
-unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0, nfes = 0;
-double target = 0.0, runtimeLmt = 0.0;
-
-parseArguments(argc, argv, S, seed, target, nfesLmt, runtimeLmt, Np, D);
-
-std::mt19937 generator(seed);
-std::uniform_real_distribution<> distribution(0.0, 1.0);
-std::vector<Solution> population = initializePopulation(Np, D, generator, distribution);
-
-double epsilon = 1e-6;
-
-auto startTime = std::chrono::high_resolution_clock::now();
-Solution bestSolution = jdeAlgorithm(population, generator, distribution, S, Np, D, target, epsilon, nfesLmt, runtimeLmt, nfes);
-auto endTime = std::chrono::high_resolution_clock::now();
-
-double bestEnergy = calculateEnergy(bestSolution, S);
-double runtime = std::chrono::duration<double>(endTime - startTime).count();
-double speed = nfes / runtime;
-
-// Write results to CSV
-std::ofstream file("results.csv", std::ios::app);
-if (file.is_open()) {
-file << seed << "," << bestEnergy << "," << runtime << "," << nfes << "," << speed << "\n";
-file.close();
-} else {
-std::cerr << "Error: Unable to open results file." << std::endl;
-}
-
-} catch (const std::invalid_argument& e) {
-std::cerr << "Error: " << e.what() << "\n";
-return 1;
-}
-
-return 0;
-}
-*/
+//         std::cout << "S: " << S << "\n";
+//         std::cout << "seed: " << seed << "\n";
+//         std::cout << "nfes: " << nfes << "\n";
+//         std::cout << "runtime: " << runtime << "\n";
+//         std::cout << "speed: " << speed << "\n";
+//         std::cout << "E: " << bestEnergy << "\n";
+//         std::cout << "solution: ";
+//         for (double angle : bestSolution.angles) {
+//             std::cout << angle << " ";
+//         }
+//         std::cout << "\n";

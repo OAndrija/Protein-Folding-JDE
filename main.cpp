@@ -29,6 +29,7 @@ double calculateDistance(const Point& p1, const Point& p2) {
     return sqrt((p2.x - p1.x) * (p2.x - p1.x) +  (p2.y - p1.y) * (p2.y - p1.y) + (p2.z - p1.z) * (p2.z - p1.z));
 }
 
+//  Xj,i,G = rand[0,1] * (XjU - XjL) + XjL ; i=1, ...,Np;  j=1, ..., D;  Fi,1=0.5;  Cri,1=0.9
 std::vector<Solution> initializePopulation(const unsigned int& Np, const unsigned int& D, std::mt19937& generator, std::uniform_real_distribution<>& distribution) {
     std::vector<Solution> population(Np);
 
@@ -51,6 +52,7 @@ std::vector<Solution> initializePopulation(const unsigned int& Np, const unsigne
 
 std::vector<Point> calculatePositions(const std::vector<double>& angles, unsigned int L) {
     std::vector<Point> positions(L);
+
     positions[0] = {0, 0, 0};
     positions[1] = {0, 1, 0};
     positions[2] = {cos(angles[0]), 1 + sin(angles[0]), 0};
@@ -76,13 +78,16 @@ double calculateEnergy(const Solution& solution, const std::string& S) {
     double E1 = 0.0, E2 = 0.0;
     unsigned int L = S.length();
 
+    // E1 = 1/4 * SUM (1 - cos(theta_i))
     for (unsigned int i = 0; i < L - 2; ++i) {
         E1 += (1 - std::cos(solution.angles[i]));
     }
     E1 /= 4.0;
 
+    // We calculate the positions of angles in a Solution
     std::vector<Point> positions = calculatePositions(solution.angles, L);
 
+    // E2 = 4 * SUM ( SUM (d(pi,pj)^-12 - c_ij * d(pi,pj)^-6) )
     for (unsigned int i = 0; i < L - 2; ++i) {
         for (unsigned int j = i + 2; j < L; ++j) {
             double d_ij = calculateDistance(positions[i], positions[j]);
@@ -90,9 +95,10 @@ double calculateEnergy(const Solution& solution, const std::string& S) {
             double d_ij_12 = d_ij_6 * d_ij_6;
             double c_ij = cCoefficient(S[i], S[j]);
 
-            E2 += 4 * (d_ij_12 - c_ij * d_ij_6);
+            E2 += (d_ij_12 - c_ij * d_ij_6);
         }
     }
+    E2 *= 4;
 
     return E1 + E2;
 }
@@ -109,14 +115,13 @@ Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator
 
     while (true) {
         for (unsigned int i = 0; i < Np; ++i) {
+            // MUTACIJA: if(rand[0, 1] < 0.1) Fi,G = 0.1 + rand[0, 1] * 0.9 else  Fi,G = Fi,G
+
             if (randomDouble(generator, distribution) < 0.1) {
                 population[i].F = 0.1 + randomDouble(generator, distribution) * 0.9;
             }
 
-            if (randomDouble(generator, distribution) < 0.1) {
-                population[i].Cr = randomDouble(generator, distribution);
-            }
-
+            // Vj,i,G=Xj,r1,G+Fi,G*(Xj,r2,G - Xj,r3,G), i=1, ..., Np; j=1, ..., D; r= rand{1, ..., Np} r1 != r2 != r3 != i
             unsigned int r1, r2, r3;
             do { r1 = std::uniform_int_distribution<>(0, Np - 1)(generator); } while (r1 == i);
             do { r2 = std::uniform_int_distribution<>(0, Np - 1)(generator); } while (r2 == i || r2 == r1);
@@ -128,9 +133,16 @@ Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator
                 V.angles[j] = population[r1].angles[j] + population[i].F * (population[r2].angles[j] - population[r3].angles[j]);
             }
 
+            // KRIZANJE: if(rand[0, 1] < 0.1) Cri,G = rand[0, 1] else Cri,G = Cri,G
+            if (randomDouble(generator, distribution) < 0.1) {
+                population[i].Cr = randomDouble(generator, distribution);
+            }
+
             Solution U;
             U.angles.resize(D);
             unsigned int jrand = std::uniform_int_distribution<>(0, D - 1)(generator);
+
+            //if(rand[0,1] < Cri,G  ||  ji,rand == j) Uj,i,G= Vj,i,G else Uj,i,G = Xj,i,G
             for (unsigned int j = 0; j < D; ++j) {
                 if (randomDouble(generator, distribution) < population[i].Cr || jrand == j) {
                     U.angles[j] = V.angles[j];
@@ -138,6 +150,7 @@ Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator
                     U.angles[j] = population[i].angles[j];
                 }
 
+                // POPRAVLJANJE
                 if (U.angles[j] < -M_PI) U.angles[j] = -M_PI;
                 if (U.angles[j] > M_PI) U.angles[j] = M_PI;
             }
@@ -146,6 +159,7 @@ Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator
             double energy_Xi = calculateEnergy(population[i], S);
             nfes++;
 
+            // SELEKCIJA
             if (energy_U < energy_Xi) {
                 population[i] = U;
                 if (energy_U < bestEnergy) {
@@ -156,6 +170,7 @@ Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator
 
             auto currentTime = std::chrono::high_resolution_clock::now();
             double elapsedTime = std::chrono::duration<double>(currentTime - startTime).count();
+
             if (bestEnergy <= target + epsilon || elapsedTime >= runtimeLmt || nfes >= nfesLmt) {
                 return bestSolution;
             }
@@ -243,3 +258,44 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+/*
+int main(int argc, char* argv[]) {
+try {
+std::string S;
+unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0, nfes = 0;
+double target = 0.0, runtimeLmt = 0.0;
+
+parseArguments(argc, argv, S, seed, target, nfesLmt, runtimeLmt, Np, D);
+
+std::mt19937 generator(seed);
+std::uniform_real_distribution<> distribution(0.0, 1.0);
+std::vector<Solution> population = initializePopulation(Np, D, generator, distribution);
+
+double epsilon = 1e-6;
+
+auto startTime = std::chrono::high_resolution_clock::now();
+Solution bestSolution = jdeAlgorithm(population, generator, distribution, S, Np, D, target, epsilon, nfesLmt, runtimeLmt, nfes);
+auto endTime = std::chrono::high_resolution_clock::now();
+
+double bestEnergy = calculateEnergy(bestSolution, S);
+double runtime = std::chrono::duration<double>(endTime - startTime).count();
+double speed = nfes / runtime;
+
+// Write results to CSV
+std::ofstream file("results.csv", std::ios::app);
+if (file.is_open()) {
+file << seed << "," << bestEnergy << "," << runtime << "," << nfes << "," << speed << "\n";
+file.close();
+} else {
+std::cerr << "Error: Unable to open results file." << std::endl;
+}
+
+} catch (const std::invalid_argument& e) {
+std::cerr << "Error: " << e.what() << "\n";
+return 1;
+}
+
+return 0;
+}
+*/

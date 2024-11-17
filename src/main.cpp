@@ -178,9 +178,9 @@ Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator
     }
 }
 
-void parseArguments(int argc, char* argv[], std::string &S, unsigned int &seed, double &target, unsigned int &nfesLmt, double &runtimeLmt, unsigned int &Np, unsigned int &D) {
-    if (argc != 12) {
-        throw std::invalid_argument("Invalid number of arguments. Expected number: 11.");
+void parseArguments(int argc, char* argv[], std::string &S, unsigned int &seed, double &target, unsigned int &nfesLmt, double &runtimeLmt, unsigned int &Np, unsigned int &D, unsigned int &expRuns, unsigned int &expThreads) {
+    if (argc != 16) {
+        throw std::invalid_argument("Invalid number of arguments. Expected number: 15.");
     }
 
     for (int i = 1; i < argc; ++i) {
@@ -198,6 +198,10 @@ void parseArguments(int argc, char* argv[], std::string &S, unsigned int &seed, 
             runtimeLmt = std::strtod(argv[++i], nullptr);
         } else if (arg == "-Np" && i + 1 < argc) {
             Np = std::strtoul(argv[++i], nullptr, 10);
+        } else if (arg == "-expRuns" && i + 1 < argc) {
+            expRuns = std::strtoul(argv[++i], nullptr, 10);
+        } else if (arg == "-expThreads" && i + 1 < argc) {
+            expThreads = std::strtoul(argv[++i], nullptr, 10);
         } else {
             throw std::invalid_argument("Unknown argument: " + arg);
         }
@@ -220,10 +224,10 @@ void printPopulation(const std::vector<Solution>& population) {
 int main(int argc, char* argv[]) {
     try {
         std::string S;
-        unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0, nfes = 0;
+        unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0, nfes = 0, expRuns, expThreads;
         double target = 0.0, runtimeLmt = 0.0;
 
-        parseArguments(argc, argv, S, seed, target, nfesLmt, runtimeLmt, Np, D);
+        parseArguments(argc, argv, S, seed, target, nfesLmt, runtimeLmt, Np, D, expRuns, expThreads);
 
         std::mt19937 generator(seed);
         std::uniform_real_distribution<> distribution(0.0, 1.0);
@@ -239,13 +243,17 @@ int main(int argc, char* argv[]) {
         double runtime = std::chrono::duration<double>(endTime - startTime).count();
         double speed = nfes / runtime;
 
-        std::ofstream file("results.csv", std::ios::app);
-        if (file.is_open()) {
-            file << seed << "," << bestEnergy << "," << runtime << "," << nfes << "," << speed << "\n";
-            file.close();
-        } else {
-            std::cerr << "Error: Unable to open results file." << std::endl;
+        std::cout << "S: " << S << "\n";
+        std::cout << "seed: " << seed << "\n";
+        std::cout << "nfes: " << nfes << "\n";
+        std::cout << "runtime: " << runtime << "\n";
+        std::cout << "speed: " << speed << "\n";
+        std::cout << "E: " << bestEnergy << "\n";
+        std::cout << "solution: ";
+        for (double angle : bestSolution.angles) {
+            std::cout << angle << " ";
         }
+        std::cout << "\n";
     } catch (const std::invalid_argument& e) {
         std::cerr << "Error: " << e.what() << "\n";
         return 1;

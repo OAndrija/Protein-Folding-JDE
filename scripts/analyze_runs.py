@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-data = pd.read_csv('results.csv')
+data = pd.read_csv('data/results.csv')
 
 seeds = data['seed']
 E_values = data['E']
@@ -45,6 +45,6 @@ axes[2].set_xticks(seeds[::5])
 
 plt.tight_layout()
 
-plt.savefig('graphs.png')
+plt.savefig('data/graphs.png')
 
 plt.show()

@@ -1,4 +1,4 @@
 /cmake-build-*
 .idea
-/experiment.exe
+/build/experiment.exe
 /main.exe

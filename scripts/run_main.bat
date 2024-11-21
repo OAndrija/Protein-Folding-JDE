@@ -6,15 +6,13 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-echo seed,E,runtime,nfes,speed > data\results.csv
+echo run,seed,E,runtime,nfes,speed> data\results.csv
 
-for /L %%i in (1,1,50) do (
-    echo Running experiment with seed %%i
-    experiment.exe ABBBBBBABBBAB -seed %%i -target -5.6104 -nfesLmt 1000000 -runtimeLmt 60.0 -Np 300
-)
+main.exe ABBBBBBABBBAB -seed 1 -target -5.6104 -nfesLmt 1000000 -runtimeLmt 60.0 -Np 300 -expRuns 50 -expThreads 16 >> data\results.csv
+
 
 echo Running data analysis...
-python data\analyze_runs.py
+python scripts\analyze_runs.py
 if %errorlevel% neq 0 (
     echo Data analysis script failed.
     exit /b %errorlevel%

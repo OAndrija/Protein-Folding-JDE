@@ -1,8 +1,11 @@
 #include <iostream>
-#include <random>
 #include <vector>
-#include <cmath>
-#include<chrono>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+#include <chrono>
+#include <random>
 #include <fstream>
 
 struct Solution {
@@ -14,6 +17,17 @@ struct Solution {
 struct Point {
     double x, y, z;
 };
+
+struct RunTask {
+    unsigned int seed;
+    unsigned int runNumber;
+};
+
+// Shared queue and synchronization primitives
+std::queue<RunTask> taskQueue;
+std::mutex queueMutex;
+std::condition_variable queueCV;
+bool stop = false;
 
 double randomDouble(std::mt19937& generator, std::uniform_real_distribution<>& distribution) {
     return distribution(generator);
@@ -221,19 +235,48 @@ void printPopulation(const std::vector<Solution>& population) {
     }
 }
 
-int main(int argc, char* argv[]) {
-    try {
-        std::string S;
-        unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0, nfes = 0, expRuns, expThreads;
-        double target = 0.0, runtimeLmt = 0.0;
+// Producer function: generates tasks and pushes them to the queue
+void producer(unsigned int expRuns, unsigned int seed) {
+    for (unsigned int i = 0; i < expRuns; ++i) {
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            taskQueue.push({seed + i, i + 1}); // Seed and run number
+        }
+        queueCV.notify_one(); // Notify a consumer thread
+    }
 
-        parseArguments(argc, argv, S, seed, target, nfesLmt, runtimeLmt, Np, D, expRuns, expThreads);
+    // Notify all threads to stop after the last task
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        stop = true;
+    }
+    queueCV.notify_all();
+}
 
-        std::mt19937 generator(seed);
+// Consumer function: processes tasks from the queue
+void consumer(const std::string& S, unsigned int Np, unsigned int D, double target,
+              unsigned int nfesLmt, double runtimeLmt, double epsilon) {
+    while (true) {
+        RunTask task;
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            queueCV.wait(lock, [] { return !taskQueue.empty() || stop; });
+
+            // Exit if there are no tasks and stop is true
+            if (stop && taskQueue.empty()) {
+                return;
+            }
+
+            task = taskQueue.front();
+            taskQueue.pop();
+        }
+
+        // Initialize the generator for this run
+        std::mt19937 generator(task.seed);
         std::uniform_real_distribution<> distribution(0.0, 1.0);
         std::vector<Solution> population = initializePopulation(Np, D, generator, distribution);
 
-        double epsilon = 1e-6;
+        unsigned int nfes = 0;
 
         auto startTime = std::chrono::high_resolution_clock::now();
         Solution bestSolution = jdeAlgorithm(population, generator, distribution, S, Np, D, target, epsilon, nfesLmt, runtimeLmt, nfes);
@@ -243,17 +286,61 @@ int main(int argc, char* argv[]) {
         double runtime = std::chrono::duration<double>(endTime - startTime).count();
         double speed = nfes / runtime;
 
-        std::cout << "S: " << S << "\n";
-        std::cout << "seed: " << seed << "\n";
-        std::cout << "nfes: " << nfes << "\n";
-        std::cout << "runtime: " << runtime << "\n";
-        std::cout << "speed: " << speed << "\n";
-        std::cout << "E: " << bestEnergy << "\n";
-        std::cout << "solution: ";
-        for (double angle : bestSolution.angles) {
-            std::cout << angle << " ";
+        // Print results for this run
+        std::cout << task.runNumber << ",";
+        std::cout << task.seed << ",";
+        std::cout << bestEnergy << ",";
+        std::cout << runtime << ",";
+        std::cout << nfes << ",";
+        std::cout << speed << "\n";
+        // std::cout << "Solution Angles: ";
+        // for (double angle : bestSolution.angles) {
+        //     std::cout << angle << " ";
+        // }
+        // std::cout << "\n\n";
+    }
+}
+
+int main(int argc, char* argv[]) {
+    try {
+        std::string S;
+        unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0, expRuns = 0, expThreads = 0;
+        double target = 0.0, runtimeLmt = 0.0;
+
+        parseArguments(argc, argv, S, seed, target, nfesLmt, runtimeLmt, Np, D, expRuns, expThreads);
+
+        double epsilon = 1e-6;
+
+        auto startTime = std::chrono::high_resolution_clock::now();
+        // Start producer thread
+        std::thread producerThread(producer, expRuns, seed);
+
+        // Start consumer threads
+        std::vector<std::thread> consumerThreads;
+        for (unsigned int i = 0; i < expThreads; ++i) {
+            consumerThreads.emplace_back(consumer, S, Np, D, target, nfesLmt, runtimeLmt, epsilon);
         }
-        std::cout << "\n";
+
+        // Join threads
+        producerThread.join();
+        for (auto& thread : consumerThreads) {
+            thread.join();
+        }
+        auto endTime = std::chrono::high_resolution_clock::now();
+
+        // Calculate elapsed time
+        std::chrono::duration<double> elapsed = endTime - startTime;
+        double executionTime = elapsed.count();
+
+        // Save to CSV
+        std::ofstream csvFile("data/timing_results.csv", std::ios::app);
+        if (csvFile.is_open()) {
+            csvFile << expThreads << "," << executionTime << "\n";
+            csvFile.close();
+        } else {
+            std::cerr << "Error: Unable to open file for writing.\n";
+        }
+
     } catch (const std::invalid_argument& e) {
         std::cerr << "Error: " << e.what() << "\n";
         return 1;
@@ -261,15 +348,3 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-
-//         std::cout << "S: " << S << "\n";
-//         std::cout << "seed: " << seed << "\n";
-//         std::cout << "nfes: " << nfes << "\n";
-//         std::cout << "runtime: " << runtime << "\n";
-//         std::cout << "speed: " << speed << "\n";
-//         std::cout << "E: " << bestEnergy << "\n";
-//         std::cout << "solution: ";
-//         for (double angle : bestSolution.angles) {
-//             std::cout << angle << " ";
-//         }
-//         std::cout << "\n";

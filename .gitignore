@@ -2,3 +2,4 @@
 .idea
 /build/experiment.exe
 /main.exe
+/src/cmake-build-debug/

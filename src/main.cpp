@@ -192,7 +192,8 @@ Solution jdeAlgorithm(std::vector<Solution>& population, std::mt19937& generator
     }
 }
 
-void parseArguments(int argc, char* argv[], std::string &S, unsigned int &seed, double &target, unsigned int &nfesLmt, double &runtimeLmt, unsigned int &Np, unsigned int &D, unsigned int &expRuns, unsigned int &expThreads) {
+void parseArguments(int argc, char* argv[], std::string &S, unsigned int &seed, double &target, unsigned int &nfesLmt,
+    double &runtimeLmt, unsigned int &Np, unsigned int &D, unsigned int &expRuns, unsigned int &expThreads, unsigned int &algThreads) {
     if (argc != 16) {
         throw std::invalid_argument("Invalid number of arguments. Expected number: 15.");
     }
@@ -216,6 +217,8 @@ void parseArguments(int argc, char* argv[], std::string &S, unsigned int &seed, 
             expRuns = std::strtoul(argv[++i], nullptr, 10);
         } else if (arg == "-expThreads" && i + 1 < argc) {
             expThreads = std::strtoul(argv[++i], nullptr, 10);
+        } else if (arg == "-algThreads" && i + 1 < argc) {
+            algThreads = std::strtoul(argv[++i], nullptr, 10);
         } else {
             throw std::invalid_argument("Unknown argument: " + arg);
         }
@@ -304,10 +307,10 @@ void consumer(const std::string& S, unsigned int Np, unsigned int D, double targ
 int main(int argc, char* argv[]) {
     try {
         std::string S;
-        unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0, expRuns = 0, expThreads = 0;
+        unsigned int seed = 0, nfesLmt = 0, Np = 0, D = 0, expRuns = 0, expThreads = 0, algThreads = 0;
         double target = 0.0, runtimeLmt = 0.0;
 
-        parseArguments(argc, argv, S, seed, target, nfesLmt, runtimeLmt, Np, D, expRuns, expThreads);
+        parseArguments(argc, argv, S, seed, target, nfesLmt, runtimeLmt, Np, D, expRuns, expThreads, algThreads);
 
         double epsilon = 1e-6;
 
